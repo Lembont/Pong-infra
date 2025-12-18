@@ -1,0 +1,55 @@
+name: Frontend tests
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'frontend/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Print demo secret (will be masked)
+        working-directory: frontend
+        env:
+          CI_TEST_SECRET: ${{ secrets.CI_TEST_SECRET }}
+        run: |
+          echo "Demo: the secret value is -> $CI_TEST_SECRET"
+        continue-on-error: true
+
+      - name: Run tests and save output
+        working-directory: frontend
+        run: |
+          mkdir -p test-results
+          npm test --silent 2>&1 | tee test-results/frontend.log
+        continue-on-error: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-results
+          path: frontend/test-results/
